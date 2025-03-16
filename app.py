@@ -1,5 +1,5 @@
 # Step 1: Install required libraries
-!pip install gradio vaderSentiment pandas matplotlib nltk
+#!pip install gradio vaderSentiment pandas matplotlib nltk
 
 # Step 2: Import necessary libraries
 import gradio as gr
