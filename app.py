@@ -1,8 +1,4 @@
 # app.py
-# Step 1: Install required libraries (uncomment and run manually if needed)
-# !pip install gradio vaderSentiment pandas matplotlib nltk plotly
-
-# Step 2: Import necessary libraries
 import gradio as gr
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 import pandas as pd
@@ -10,6 +6,7 @@ import plotly.express as px
 import os
 import nltk
 from nltk.tokenize import sent_tokenize
+import sys
 
 # Step 3: Ensure NLTK resources are downloaded with verification
 print("Downloading NLTK resources...")
@@ -18,13 +15,15 @@ try:
     nltk.download('punkt_tab', quiet=False)
     print("NLTK resources downloaded successfully.")
 except Exception as e:
-    raise ValueError(f"Failed to download NLTK resources: {str(e)}")
+    print(f"Failed to download NLTK resources: {str(e)}", file=sys.stderr)
+    sys.exit(1)
 
 try:
     nltk.data.find('tokenizers/punkt_tab')
     print("punkt_tab resource found.")
 except LookupError:
-    raise ValueError("punkt_tab resource not found after download. Please check NLTK installation.")
+    print("punkt_tab resource not found after download. Please check NLTK installation.", file=sys.stderr)
+    sys.exit(1)
 
 # Step 4: Initialize VADER sentiment analyzer
 analyzer = SentimentIntensityAnalyzer()
@@ -166,7 +165,6 @@ def generate_interactive_plot(doc_df):
     fig.update_layout(showlegend=False)
     return fig
 
-# Step 6: Function to update UI components based on file upload
 def update_file_ui(file):
     try:
         file_ext = os.path.splitext(file.name)[1].lower()
@@ -206,6 +204,90 @@ def update_file_ui(file):
         )
 
 # Step 7: Build and launch the Gradio interface
-def create_app():
-    with gr.Blocks() as demo:
-        gr.Markdown
+with gr.Blocks() as demo:
+    gr.Markdown("### Sentiment Analysis App with Multiple Input Options")
+
+    with gr.Tab("Text Input"):
+        with gr.Row():
+            text_input = gr.Textbox(label="Enter your text here", lines=5, placeholder="Type your text...")
+            analyze_button_text = gr.Button("Analyze Sentiment")
+        sentiment_results_text = gr.Dataframe(label="Sentence-Level Sentiment Analysis Results")
+        doc_sentiment_results_text = gr.Dataframe(label="Document-Level Sentiment Analysis Results")
+        error_message_text = gr.Textbox(label="Error Message", interactive=False)
+
+        def perform_analysis_text(user_input):
+            sentence_df, doc_df, error, plot_df = analyze_text(user_input)
+            if error:
+                return pd.DataFrame(), pd.DataFrame(), error, None
+            plot_fig = generate_interactive_plot(plot_df)
+            return sentence_df, doc_df, error, plot_fig
+
+        analyze_button_text.click(
+            perform_analysis_text,
+            inputs=text_input,
+            outputs=[sentiment_results_text, doc_sentiment_results_text, error_message_text, gr.State()]
+        )
+
+    with gr.Tab("File Upload"):
+        file_input = gr.File(label="Upload a .txt or .csv file")
+        with gr.Row():
+            doc_id_dropdown = gr.Dropdown(label="Select Document ID Column (CSV only)", choices=[], interactive=True, visible=False)
+            text_dropdown = gr.Dropdown(label="Select Text Column (CSV only)", choices=[], interactive=True, visible=False)
+        analyze_button_file = gr.Button("Run Analysis", visible=False)
+        sentiment_results_file = gr.Dataframe(label="Sentence-Level Sentiment Analysis Results")
+        doc_sentiment_results_file = gr.Dataframe(label="Document-Level Sentiment Analysis Results")
+        error_message_file = gr.Textbox(label="Error Message", interactive=False)
+
+        def perform_analysis_file(file, doc_id_col, text_col):
+            file_ext = os.path.splitext(file.name)[1].lower()
+            if file_ext == '.csv':
+                sentence_df, doc_df, error, plot_df = analyze_file(file, doc_id_col, text_col)
+            else:
+                sentence_df, doc_df, error, plot_df = analyze_file(file)
+            if error:
+                return pd.DataFrame(), pd.DataFrame(), error, None
+            plot_fig = generate_interactive_plot(plot_df)
+            return sentence_df, doc_df, error, plot_fig
+
+        file_input.change(
+            update_file_ui,
+            inputs=file_input,
+            outputs=[gr.State(), doc_id_dropdown, text_dropdown, analyze_button_file]
+        ).then(
+            fn=lambda preview: preview,
+            inputs=gr.State(),
+            outputs=gr.State()
+        )
+
+        analyze_button_file.click(
+            perform_analysis_file,
+            inputs=[file_input, doc_id_dropdown, text_col],
+            outputs=[sentiment_results_file, doc_sentiment_results_file, error_message_file, gr.State()]
+        )
+
+    with gr.Tab("Data"):
+        data_preview = gr.Dataframe(label="Data Preview (First 5 Rows)")
+
+        file_input.change(
+            update_file_ui,
+            inputs=file_input,
+            outputs=[data_preview, gr.State(), gr.State(), gr.State()]
+        )
+
+    with gr.Tab("Plot"):
+        plot_output = gr.Plot(label="Document Sentiment Plot")
+
+        analyze_button_text.click(
+            perform_analysis_text,
+            inputs=text_input,
+            outputs=[sentiment_results_text, doc_sentiment_results_text, error_message_text, plot_output]
+        )
+
+        analyze_button_file.click(
+            perform_analysis_file,
+            inputs=[file_input, doc_id_dropdown, text_col],
+            outputs=[sentiment_results_file, doc_sentiment_results_file, error_message_file, plot_output]
+        )
+
+# Launch the interface locally
+demo.launch(server_name="0.0.0.0", server_port=7860)
