@@ -238,10 +238,10 @@ with gr.Blocks() as demo:
         doc_sentiment_results_file = gr.Dataframe(label="Document-Level Sentiment Analysis Results")
         error_message_file = gr.Textbox(label="Error Message", interactive=False)
 
-        def perform_analysis_file(file, doc_id_col, text_col):
+        def perform_analysis_file(file, doc_id_col, text_dropdown):
             file_ext = os.path.splitext(file.name)[1].lower()
             if file_ext == '.csv':
-                sentence_df, doc_df, error, plot_df = analyze_file(file, doc_id_col, text_col)
+                sentence_df, doc_df, error, plot_df = analyze_file(file, doc_id_col, text_dropdown)
             else:
                 sentence_df, doc_df, error, plot_df = analyze_file(file)
             if error:
@@ -261,7 +261,7 @@ with gr.Blocks() as demo:
 
         analyze_button_file.click(
             perform_analysis_file,
-            inputs=[file_input, doc_id_dropdown, text_col],
+            inputs=[file_input, doc_id_dropdown, text_dropdown],
             outputs=[sentiment_results_file, doc_sentiment_results_file, error_message_file, gr.State()]
         )
 
@@ -285,7 +285,7 @@ with gr.Blocks() as demo:
 
         analyze_button_file.click(
             perform_analysis_file,
-            inputs=[file_input, doc_id_dropdown, text_col],
+            inputs=[file_input, doc_id_dropdown, text_dropdown],
             outputs=[sentiment_results_file, doc_sentiment_results_file, error_message_file, plot_output]
         )
 
